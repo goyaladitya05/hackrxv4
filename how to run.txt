@@ -1,0 +1,4 @@
+run uvicorn app.main:app --reload
+it will show some url
+add to the url /api/v1/health for health check
+add to the url /api/v1/hackrx/run for sending post request

@@ -1,0 +1,22 @@
+project_root/
+├── app/
+│   ├── __init__.py
+│   ├── main.py               # FastAPI entrypoint
+│   ├── routes.py             # /hackrx/run POST endpoint
+│   ├── models.py             # Pydantic models
+│   ├── config.py             # Env and settings
+│   ├── auth.py               # Bearer token check
+│   ├── tracing.py            # LangSmith tracing setup
+│   └── services/
+│       ├── __init__.py
+│       ├── loader.py         # PDF, DOCX, EML loader
+│       ├── splitter.py       # Text chunking
+│       ├── embeddings.py     # SentenceTransformer embedder
+│       ├── vectorstore.py    # FAISS logic
+│       ├── gemini_client.py  # Gemini call via LangChain + LangSmith
+│       └── logic.py          # Clause matching, reasoning, formatting
+│
+├── requirements.txt          # Dependencies
+├── render.yaml               # Render deployment spec
+├── .env.example              # Example env vars
+└── README.md                 # Project overview
