@@ -13,4 +13,4 @@ protobuf~=6.31.1
 langchain-google-genai~=2.1.9
 uvicorn
 pdfplumber
-faiss-cpu==1.7.4
+faiss-cpu==1.7.2
