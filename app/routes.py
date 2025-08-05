@@ -23,3 +23,7 @@ def run_query(request: QueryRequest, authorization: str = Header(...)):
 @router.get("/health", tags=["Health"])
 async def health_check():
     return JSONResponse(content={"status": "ok", "message": "Server is healthy"})
+
+@router.get("/hackrx/run")
+async def health_check():
+    return JSONResponse(content={"status": "ok", "message": "Send a POST request. GET not allowed on this route"})
