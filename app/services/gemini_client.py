@@ -7,7 +7,7 @@ from langsmith import traceable
 import os
 
 @traceable(name="GeminiClient")
-def invoke_gemini(prompt: str, model_name: str = "gemini-2.5-pro") -> str:
+def invoke_gemini(prompt: str, model_name: str = "gemini-2.5-flash") -> str:
     genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
     llm: BaseChatModel = ChatGoogleGenerativeAI(model=model_name)
     response = llm.invoke([HumanMessage(content=prompt)])
