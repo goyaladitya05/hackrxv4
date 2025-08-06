@@ -33,12 +33,14 @@ def retrieve_and_respond(text_chunks: list[str], questions: list[str]) -> dict:
     results = batch_process_questions(prompts)
     return restructure_response(results)
 
+def build_prompt(context: str, question: str) -> str:
+    return (
+        "Avoid bullet points, line breaks, and unnecessary details. Use commas if needed to keep the sentence compact.\n\n"
+        f"Context:\n{context}\n\nQuestion: {question}\n\nAnswer:"
+    )
+
 def process_questions(context: str, questions: List[str]) -> Dict[str, List[str]]:
-    prompts = [
-        f"Avoid bullet points, line breaks, and unnecessary details. Use commas if needed to keep the sentence compact.\n\n"
-        f"Context:\n{context}\n\nQuestion: {q}\n\nAnswer:"
-        for q in questions
-    ]
+    prompts = [build_prompt(context, q) for q in questions]
     
     results = batch_process_questions(prompts)
     return restructure_response(results)

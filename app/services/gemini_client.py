@@ -8,7 +8,7 @@ from langchain_core.messages import HumanMessage
 from langchain_core.language_models.chat_models import BaseChatModel
 from langsmith import traceable
 from dotenv import load_dotenv
-
+from concurrent.futures import ThreadPoolExecutor
 load_dotenv()
 
 @traceable(name="Geminiv4Client")
@@ -37,28 +37,25 @@ def process_with_key(args: tuple) -> Dict:
             'status': 'error'
         }
 
+
 def batch_process_questions(questions: List[str], model_name: str = "gemini-2.5-flash-lite") -> List[Dict]:
-    """Process questions in parallel using multiple API keys"""
-    # Get API keys from environment variables
     api_keys = [
         os.getenv(f'GEMINI_API_KEY_{i}')
         for i in range(1, 11)
         if os.getenv(f'GEMINI_API_KEY_{i}')
     ]
-    
+
     if not api_keys:
         raise ValueError("No Gemini API keys found in environment variables")
 
-    # Create tasks as tuples of (api_key, question, model_name)
-    tasks = []
-    for i, question in enumerate(questions):
-        api_key = api_keys[i % len(api_keys)]  # Rotate through available keys
-        tasks.append((api_key, question, model_name))
-    
-    # Process in parallel using multiprocessing
-    with Pool(min(len(api_keys), len(questions))) as pool:
-        results = pool.map(process_with_key, tasks)
-    
+    tasks = [
+        (api_keys[i % len(api_keys)], question, model_name)
+        for i, question in enumerate(questions)
+    ]
+
+    with ThreadPoolExecutor(max_workers=min(len(api_keys), len(questions))) as executor:
+        results = list(executor.map(process_with_key, tasks))
+
     return results
 
 def process_questions(context: str, questions: List[str]) -> Dict[str, List[str]]:
