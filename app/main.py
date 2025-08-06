@@ -15,4 +15,3 @@ warnings.filterwarnings(
 app = FastAPI(title="HackRx LLM Query-Retrieval System")
 
 app.include_router(router, prefix="/api/v1")
-

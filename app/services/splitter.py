@@ -1,11 +1,14 @@
-# === app/services/splitter.py ===
 from typing import List
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-def split_text(text: str) -> List[str]:
+def split_text(
+    text: str,
+    chunk_size: int = 1200,
+    chunk_overlap: int = 300
+) -> List[str]:
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=150,
-        separators=["\n\n", "\n", ".", " "]
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        separators=["\n\n", "\n", ".", "?", "!", ",", " "]
     )
     return splitter.split_text(text)
