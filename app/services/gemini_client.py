@@ -16,7 +16,7 @@ def invoke_gemini(prompt: str, api_key: str = None, model_name: str = "gemini-2.
     # Use provided API key or fallback to environment variable
     key = api_key or os.getenv("GOOGLE_API_KEY")
     genai.configure(api_key=key)
-    llm: BaseChatModel = ChatGoogleGenerativeAI(model=model_name)
+    llm: BaseChatModel = ChatGoogleGenerativeAI(model=model_name,api_key=key)
     response = llm.invoke([HumanMessage(content=prompt)])
     return response.content
 
