@@ -11,7 +11,7 @@ load_dotenv()
 
 # === OpenAI PRIMARY ===
 @traceable(name="OpenAIClient")
-def invoke_openai(prompt: str, api_key: str, model_name: str = "gpt-4") -> str:
+def invoke_openai(prompt: str, api_key: str, model_name: str = "gpt-3.5-turbo") -> str:
     client = openai.OpenAI(api_key=api_key)
 
     response = client.chat.completions.create(
@@ -25,7 +25,7 @@ def invoke_openai(prompt: str, api_key: str, model_name: str = "gpt-4") -> str:
 
 # === Gemini Fallback ===
 @traceable(name="GeminiClient")
-def invoke_gemini(prompt: str, api_key: str, model_name: str = "gemini-2.5-flash") -> str:
+def invoke_gemini(prompt: str, api_key: str, model_name: str = "gemini-2.5-pro") -> str:
     genai.configure(api_key=api_key)
     chat = genai.GenerativeModel(model_name).start_chat()
     response = chat.send_message(prompt)
