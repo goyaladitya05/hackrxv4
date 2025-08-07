@@ -2,7 +2,7 @@ from typing import Dict, List
 import numpy as np
 from app.services.embeddings import EmbeddingService
 from app.services.llm_client import batch_process_questions
-
+import time
 embedding_model = EmbeddingService()
 
 
@@ -11,11 +11,13 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
 
 
 def retrieve_and_respond(text_chunks: List[str], questions: List[str]) -> Dict[str, List[str]]:
+    start = time.time()
     chunk_vectors = embedding_model.embed(text_chunks)
     prompts = []
+    question_vectors = embedding_model.embed(questions)
+    print(f"[Embedding] Took {time.time() - start:.2f}s")
 
-    for q in questions:
-        q_vec = embedding_model.embed([q])[0]
+    for q,q_vec in zip(questions,question_vectors):
         similarities = [cosine_similarity(q_vec, chunk_vec) for chunk_vec in chunk_vectors]
         top_indices = np.argsort(similarities)[-5:][::-1]
         top_chunks = [text_chunks[i] for i in top_indices]
@@ -60,8 +62,9 @@ def process_questions(context: str, questions: List[str]) -> Dict[str, List[str]
             "Answer:"
         )
         prompts.append(prompt)
-
+    start = time.time()
     results = batch_process_questions(prompts)
+    print(f"[LLM Query] Took {time.time() - start:.2f}s")
     return {
         "answers": [result["answer"] for result in results]
     }

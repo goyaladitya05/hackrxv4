@@ -1,26 +1,47 @@
 import os
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple,Generator
 from concurrent.futures import ThreadPoolExecutor
-
-import openai
+from openai import OpenAI
+#import openai
 import google.generativeai as genai
 from dotenv import load_dotenv
 from langsmith import traceable
 
 load_dotenv()
+openai_clients = {}  # key: api_key, value: client object
 
 # === OpenAI PRIMARY ===
 @traceable(name="OpenAIClient")
-def invoke_openai(prompt: str, api_key: str, model_name: str = "gpt-3.5-turbo") -> str:
-    client = openai.OpenAI(api_key=api_key)
+def invoke_openai(prompt: str, api_key: str, model_name: str = "gpt-4-turbo", stream: bool = False) -> str:
+    client = get_openai_client(api_key)
 
-    response = client.chat.completions.create(
-        model=model_name,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.3,
-    )
+    if stream:
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            stream=True,  # ✅ streaming enabled
+        )
 
-    return response.choices[0].message.content.strip()
+        collected = []
+        for chunk in response:
+            delta = chunk.choices[0].delta.content or ""
+            collected.append(delta)
+        return "".join(collected).strip()
+
+    else:
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+        )
+        return response.choices[0].message.content.strip()
+
+
+def get_openai_client(api_key: str) -> OpenAI:
+    if api_key not in openai_clients:
+        openai_clients[api_key] = OpenAI(api_key=api_key)
+    return openai_clients[api_key]
 
 
 # === Gemini Fallback ===
@@ -73,7 +94,7 @@ def process_with_key(args: Tuple[int, str, str, bool]) -> Dict:
 
 
 # === Batch Processor with OpenAI+Gemini or Gemini-only mode ===
-def batch_process_questions(questions: List[str], model_name: str = "gpt-3.5-turbo") -> List[Dict]:
+def batch_process_questions(questions: List[str], model_name: str = "gpt-4-turbo") -> List[Dict]:
     openai_keys = [os.getenv(f'OPENAI_API_KEY_{i}') for i in range(1, 11)]
     gemini_keys = [os.getenv(f'GEMINI_API_KEY_{i}') for i in range(1, 11)]
 
