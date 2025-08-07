@@ -1,5 +1,9 @@
 import faiss
 import numpy as np
+from typing import List
+
+def get_top_k_chunks(chunks: List[str], k: int = 5) -> List[str]:
+    return chunks[:k]  # Naive retrieval (replace with embedding-based if needed)
 
 class FAISSVectorStore:
     def __init__(self, dim: int):
