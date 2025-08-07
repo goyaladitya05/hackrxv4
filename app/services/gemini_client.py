@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 load_dotenv()
 
 @traceable(name="Geminiv4Client")
-def invoke_gemini(prompt: str, api_key: str = None, model_name: str = "gemini-2.5-flash-lite") -> str:
+def invoke_gemini(prompt: str, api_key: str = None, model_name: str = "gemini-2.5-flash") -> str:
     # Use provided API key or fallback to environment variable
     key = api_key or os.getenv("GOOGLE_API_KEY")
     genai.configure(api_key=key)
@@ -38,7 +38,7 @@ def process_with_key(args: tuple) -> Dict:
         }
 
 
-def batch_process_questions(questions: List[str], model_name: str = "gemini-2.5-flash-lite") -> List[Dict]:
+def batch_process_questions(questions: List[str], model_name: str = "gemini-2.5-flash") -> List[Dict]:
     api_keys = [
         os.getenv(f'GEMINI_API_KEY_{i}')
         for i in range(1, 11)

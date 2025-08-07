@@ -22,7 +22,7 @@ def retrieve_and_respond(text_chunks: list[str], questions: list[str]) -> dict:
         
         prompt = (
             "You are a helpful assistant. ONLY use the information provided in the context below to answer the user's question. "
-            "Do not use any outside knowledge. If the answer is not in the context, reply with 'I don't know.' "
+            "Do not use any outside knowledge. If the answer is not in the context, reply with 'There's no answer to this in the provided context' "
             "Respond in a single sentence, or two sentences maximum. Be clear, concise, and factual. "
             "Avoid bullet points, line breaks, and unnecessary details. Use commas if needed to keep the sentence compact.\n\n"
             f"Context:\n{context}\n\nQuestion: {q}\n\nAnswer:"
