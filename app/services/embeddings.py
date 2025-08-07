@@ -2,6 +2,7 @@ from transformers import AutoTokenizer, AutoModel
 import torch
 import numpy as np
 import os
+import gc
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
@@ -14,9 +15,19 @@ class EmbeddingService:
         self.model.eval()
 
     def embed(self, texts: list[str]) -> np.ndarray:
-        inputs = self.tokenizer(texts, padding=True, truncation=True, return_tensors="pt").to(self.device)
-        with torch.no_grad():
-            outputs = self.model(**inputs)
-            embeddings = outputs.last_hidden_state[:, 0]  # CLS token
-            embeddings = torch.nn.functional.normalize(embeddings, p=2, dim=1)
-        return embeddings.cpu().numpy()
+        inputs = None
+        outputs = None
+        embeddings = None
+        try:
+            inputs = self.tokenizer(texts, padding=True, truncation=True, return_tensors="pt").to(self.device)
+            with torch.no_grad():
+                outputs = self.model(**inputs)
+                embeddings = outputs.last_hidden_state[:, 0]
+                embeddings = torch.nn.functional.normalize(embeddings, p=2, dim=1)
+            return embeddings.cpu().numpy()
+        finally:
+            if torch.cuda.is_available():
+                del inputs, outputs, embeddings  # explicitly free GPU tensors
+                gc.collect()  # clean up CPU memory
+                torch.cuda.empty_cache()  # release cached GPU memory
+
