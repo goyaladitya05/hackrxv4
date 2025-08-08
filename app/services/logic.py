@@ -33,13 +33,15 @@ def retrieve_and_respond(text_chunks: List[str], questions: List[str]) -> Dict[s
 def build_concise_prompt(context: str, question: str) -> str:
     return (
         "You are an insurance policy expert. Answer the question using ONLY the information from the context below. "
-        "Provide a clear, concise answer that includes essential details like numbers, time periods, and key conditions. "
-        "Keep your response to 1-2 sentences maximum. Focus on the most important information. "
-        "Do not include unnecessary details, explanations, or conditions unless they are core to the answer. "
-        "If the answer is not in the context, reply with 'There's no answer to this in the provided context'.\n\n"
-        f"Context:\n{context}\n\n"
-        f"Question: {question}\n\n"
-        "Answer:"
+            "The context may include tables, bullet points, or structured formats — carefully analyze and extract relevant details from these. "
+            "Keep your response to 1 sentence only, unless essential context (e.g. legal names or conditions) requires 2, that includes essential data like numbers, time periods, limits, or conditions. "
+            "Only provide information that is directly stated or can be clearly inferred from the context. "
+            "Do not include assumptions or external knowledge. "
+            "If the answer is truly not present in the context — including in tables or structured formats — reply with exactly: "
+            "'There's no answer to this in the provided context'.\n\n"
+            f"Context:\n{context}\n\n"
+            f"Question: {question}\n\n"
+            "Answer:"
     )
 
 
@@ -53,10 +55,12 @@ def process_questions(context: str, questions: List[str]) -> Dict[str, List[str]
     for q in questions:
         prompt = (
             "You are an insurance policy expert. Answer the question using ONLY the information from the context below. "
-            "Provide a clear, concise answer that includes essential details like numbers, time periods, and key conditions. "
-            "Keep your response to 1-2 sentences maximum. Focus on the most important information. "
-            "Do not include unnecessary details, explanations, or extensive conditions unless they are core to the answer. "
-            "If the answer is not in the context, reply with 'There's no answer to this in the provided context'.\n\n"
+            "The context may include tables, bullet points, or structured formats — carefully analyze and extract relevant details from these. "
+            "Keep your response to 1 sentence only, unless essential context (e.g. legal names or conditions) requires 2, that includes essential data like numbers, time periods, limits, or conditions. "
+            "Only provide information that is directly stated or can be clearly inferred from the context. "
+            "Do not include assumptions or external knowledge. "
+            "If the answer is truly not present in the context — including in tables or structured formats — reply with exactly: "
+            "'There's no answer to this in the provided context'.\n\n"
             f"Context:\n{context}\n\n"
             f"Question: {q}\n\n"
             "Answer:"
