@@ -11,8 +11,8 @@ import google.generativeai as genai
 load_dotenv()
 openai_clients = {}
 
-@traceable(name="Submission-OpenAIClient")
-def invoke_openai(prompt: str, api_key: str, model_name: str = "gpt-4o", stream: bool = False) -> str:
+@traceable(name="Testing-OpenAIClient")
+def invoke_openai(prompt: str, api_key: str, model_name: str = "gpt-4o-mini", stream: bool = False) -> str:
     client = get_openai_client(api_key)
     if stream:
         response = client.chat.completions.create(
@@ -36,8 +36,8 @@ def get_openai_client(api_key: str) -> OpenAI:
         openai_clients[api_key] = OpenAI(api_key=api_key)
     return openai_clients[api_key]
 
-@traceable(name="Submission-GeminiClient")
-def invoke_gemini(prompt: str, api_key: str, model_name: str = "gemini-2.5-pro") -> str:
+@traceable(name="Testing-GeminiClient")
+def invoke_gemini(prompt: str, api_key: str, model_name: str = "gemini-2.5-flash-lite") -> str:
     genai.configure(api_key=api_key)
     chat = genai.GenerativeModel(model_name).start_chat()
     response = chat.send_message(prompt)
@@ -67,14 +67,14 @@ def process_with_key(args: Tuple[int, str, str, bool]) -> Dict:
     # Try Gemini 2.5 Pro
     if gemini_key:
         try:
-            answer = invoke_gemini(prompt, gemini_key, model_name="gemini-2.5-pro")
+            answer = invoke_gemini(prompt, gemini_key, model_name="gemini-2.5-flash-lite")
             return {'question': prompt, 'answer': answer, 'status': 'gemini-pro-success'}
         except Exception as e:
             print(f"[Gemini-Pro Error] Key {index + 1} failed: {e}")
 
             # Final fallback: Gemini 2.5 Flash
             try:
-                answer = invoke_gemini(prompt, gemini_key, model_name="gemini-2.5-flash")
+                answer = invoke_gemini(prompt, gemini_key, model_name="gemini-2.5-flash-lite")
                 return {'question': prompt, 'answer': answer, 'status': 'gemini-flash-fallback'}
             except Exception as e2:
                 print(f"[Gemini-Flash Error] Key {index + 1} failed: {e2}")
@@ -86,7 +86,7 @@ def process_with_key(args: Tuple[int, str, str, bool]) -> Dict:
     }
 
 # === Batch Processor ===
-def batch_process_questions(questions: List[str], model_name: str = "gpt-4o") -> List[Dict]:
+def batch_process_questions(questions: List[str], model_name: str = "gpt-4o-mini") -> List[Dict]:
     openai_keys = [os.getenv(f'OPENAI_API_KEY_{i}') for i in range(1, 11)]
     gemini_keys = [os.getenv(f'GEMINI_API_KEY_{i}') for i in range(1, 11)]
 

@@ -1,61 +1,150 @@
-from transformers import AutoTokenizer, AutoModel
+import os
 import torch
 import numpy as np
-import os
-import gc
+import openai
+import google.generativeai as genai
+from itertools import cycle
+from asyncio import Lock
+from sentence_transformers import SentenceTransformer
+from concurrent.futures import ThreadPoolExecutor
 
-os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 class EmbeddingService:
-    def __init__(self, model_name="BAAI/bge-base-en"):
-        self.model_name = model_name
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+    def __init__(self):
+        self.local_model_name = "BAAI/bge-large-en-v1.5"
+        self.openai_model_name = "text-embedding-3-large"
+        self.gemini_model_name = "models/embedding-001"
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        self.gpu_available = torch.cuda.is_available()
-        self.model_gpu = None
-        self.model_cpu = None
+        # === Flags to explicitly enable/disable embedders ===
+        self.enable_local = True
+        self.enable_openai = True
+        self.enable_gemini = False
 
-        if self.gpu_available:
+        # These track actual availability after loading
+        self.use_local = False
+        self.use_openai = False
+        self.use_gemini = False
+
+        self.executor = ThreadPoolExecutor(max_workers=4)
+
+        # === Load Local Model ===
+        if self.enable_local:
             try:
-                self.model_gpu = AutoModel.from_pretrained(model_name).to("cuda")
-                self.model_gpu.eval()
-                print(f"[Init] Loaded model on GPU: {model_name}")
+                self.model = SentenceTransformer(self.local_model_name, device=self.device)
+                self.use_local = True
+                print(f"[EmbeddingService] Loaded local model: {self.local_model_name} on {self.device}")
             except Exception as e:
-                print(f"[Warning] Failed to load model on GPU: {e}")
-                self.gpu_available = False
+                print(f"[EmbeddingService] Failed to load local model: {e}")
 
-        # Always load CPU model for fallback
-        self.model_cpu = AutoModel.from_pretrained(model_name).to("cpu")
-        self.model_cpu.eval()
-        print(f"[Init] Loaded model on CPU: {model_name}")
+        # === Load OpenAI Keys ===
+        if self.enable_openai:
+            openai_keys = [
+                os.getenv(f"OPENAI_API_KEY_{i}") for i in range(1, 11)
+                if os.getenv(f"OPENAI_API_KEY_{i}")
+            ]
+            if openai_keys:
+                self.openai_keys_cycle = cycle(openai_keys)
+                self.openai_lock = Lock()
+                self.openai_keys_list = openai_keys
+                self.use_openai = True
+                print(f"[EmbeddingService] Loaded {len(openai_keys)} OpenAI keys.")
 
-    def embed(self, texts: list[str]) -> np.ndarray:
-        try:
-            device = "cuda" if self.gpu_available else "cpu"
-            model = self.model_gpu if self.gpu_available else self.model_cpu
-            print(f"[Embed] Using {device.upper()} for embedding.")
-            return self._embed(texts, device=device, model=model)
-        except RuntimeError as e:
-            if "CUDA out of memory" in str(e):
-                print("[Fallback] CUDA OOM – retrying on CPU...")
-                return self._embed(texts, device="cpu", model=self.model_cpu)
-            else:
-                raise e
+        # === Load Gemini Keys ===
+        if self.enable_gemini:
+            gemini_keys = [
+                os.getenv(f"GEMINI_API_KEY_{i}") for i in range(1, 11)
+                if os.getenv(f"GEMINI_API_KEY_{i}")
+            ]
+            if gemini_keys:
+                self.gemini_keys_cycle = cycle(gemini_keys)
+                self.gemini_lock = Lock()
+                self.gemini_keys_list = gemini_keys
+                self.use_gemini = True
+                print(f"[EmbeddingService] Loaded {len(gemini_keys)} Gemini keys.")
 
-    def _embed(self, texts: list[str], device: str, model: AutoModel) -> np.ndarray:
-        inputs = None
-        outputs = None
-        embeddings = None
-        try:
-            inputs = self.tokenizer(texts, padding=True, truncation=True, return_tensors="pt").to(device)
-            with torch.no_grad():
-                outputs = model(**inputs)
-                embeddings = outputs.last_hidden_state[:, 0]
-                embeddings = torch.nn.functional.normalize(embeddings, p=2, dim=1)
-            return embeddings.cpu().numpy()
-        finally:
-            if device == "cuda":
-                print("[Cleanup] Clearing CUDA memory...")
-                del inputs, outputs, embeddings
-                gc.collect()
+    async def _get_next_openai_key(self):
+        async with self.openai_lock:
+            return next(self.openai_keys_cycle)
+
+    async def _get_next_gemini_key(self):
+        async with self.gemini_lock:
+            return next(self.gemini_keys_cycle)
+
+    async def _try_openai_embedding(self, texts):
+        for _ in range(len(self.openai_keys_list)):
+            key = await self._get_next_openai_key()
+            try:
+                openai.api_key = key
+                resp = await openai.Embedding.acreate(model=self.openai_model_name, input=texts)
+                print(f"[EmbeddingService] OpenAI key {key[:8]}... succeeded.")
+                return np.array([d["embedding"] for d in resp["data"]], dtype=np.float32)
+            except Exception as e:
+                print(f"[EmbeddingService] OpenAI key {key[:8]}... failed: {e}")
+        return None
+
+    async def _try_gemini_embedding(self, texts):
+        for _ in range(len(self.gemini_keys_list)):
+            key = await self._get_next_gemini_key()
+            try:
+                genai.configure(api_key=key)
+                resp = await self._run_in_executor(
+                    genai.embed_content,
+                    model=self.gemini_model_name,
+                    content=texts
+                )
+                if "embedding" in resp:
+                    embeddings = [resp["embedding"]["values"]]
+                elif "embeddings" in resp:
+                    embeddings = [e["values"] for e in resp["embeddings"]]
+                else:
+                    raise RuntimeError("Unexpected Gemini response format.")
+                print(f"[EmbeddingService] Gemini key {key[:8]}... succeeded.")
+                return np.array(embeddings, dtype=np.float32)
+            except Exception as e:
+                print(f"[EmbeddingService] Gemini key {key[:8]}... failed: {e}")
+        return None
+
+    async def _run_in_executor(self, func, *args, **kwargs):
+        import asyncio
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(self.executor, lambda: func(*args, **kwargs))
+
+    async def embed_texts(self, texts: list[str]) -> np.ndarray:
+        if not texts:
+            return np.array([])
+
+        # Try local first
+        if self.use_local:
+            try:
+                return await self._run_in_executor(
+                    self.model.encode,
+                    texts,
+                    convert_to_numpy=True,
+                    show_progress_bar=False
+                )
+            except torch.cuda.OutOfMemoryError:
+                print("[EmbeddingService] GPU OOM — disabling local and retrying.")
                 torch.cuda.empty_cache()
+                self.use_local = False
+            except Exception as e:
+                print(f"[EmbeddingService] Local embedding error: {e}")
+                self.use_local = False
+
+        # Try OpenAI
+        if self.use_openai:
+            result = await self._try_openai_embedding(texts)
+            if result is not None:
+                return result
+            else:
+                print("[EmbeddingService] All OpenAI keys failed or unavailable.")
+
+        # Try Gemini
+        if self.use_gemini:
+            result = await self._try_gemini_embedding(texts)
+            if result is not None:
+                return result
+            else:
+                print("[EmbeddingService] All Gemini keys failed.")
+
+        raise RuntimeError("No embedding source available (local, OpenAI, or Gemini).")
