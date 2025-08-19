@@ -12,7 +12,7 @@ load_dotenv()
 openai_clients = {}
 
 @traceable(name="Testing-OpenAIClient")
-def invoke_openai(prompt: str, api_key: str, model_name: str = "gpt-4o-mini", stream: bool = False) -> str:
+def invoke_openai(prompt: str, api_key: str, model_name: str = "gpt-4o", stream: bool = False) -> str:
     client = get_openai_client(api_key)
     if stream:
         response = client.chat.completions.create(
@@ -37,11 +37,21 @@ def get_openai_client(api_key: str) -> OpenAI:
     return openai_clients[api_key]
 
 @traceable(name="Testing-GeminiClient")
-def invoke_gemini(prompt: str, api_key: str, model_name: str = "gemini-2.5-flash-lite") -> str:
+@traceable(name="Testing-GeminiClient")
+def invoke_gemini(prompt: str, api_key: str, model_name: str = "gemini-2.5-pro") -> str:
     genai.configure(api_key=api_key)
     chat = genai.GenerativeModel(model_name).start_chat()
     response = chat.send_message(prompt)
-    return response.text.strip()
+
+    # Check if candidates exist and contain text parts before accessing .text
+    if hasattr(response, "candidates") and response.candidates:
+        candidate = response.candidates[0]
+        # candidate may or may not have a .text attribute, check safely
+        if hasattr(candidate, "text") and candidate.text:
+            return candidate.text.strip()
+    # Fallback return if no valid text is found
+    return "There's no answer to this in the provided context"
+
 
 # === Worker Logic ===
 def process_with_key(args: Tuple[int, str, str, bool]) -> Dict:
@@ -67,14 +77,14 @@ def process_with_key(args: Tuple[int, str, str, bool]) -> Dict:
     # Try Gemini 2.5 Pro
     if gemini_key:
         try:
-            answer = invoke_gemini(prompt, gemini_key, model_name="gemini-2.5-flash-lite")
+            answer = invoke_gemini(prompt, gemini_key, model_name="gemini-2.5-pro")
             return {'question': prompt, 'answer': answer, 'status': 'gemini-pro-success'}
         except Exception as e:
             print(f"[Gemini-Pro Error] Key {index + 1} failed: {e}")
 
             # Final fallback: Gemini 2.5 Flash
             try:
-                answer = invoke_gemini(prompt, gemini_key, model_name="gemini-2.5-flash-lite")
+                answer = invoke_gemini(prompt, gemini_key, model_name="gemini-2.5-flash")
                 return {'question': prompt, 'answer': answer, 'status': 'gemini-flash-fallback'}
             except Exception as e2:
                 print(f"[Gemini-Flash Error] Key {index + 1} failed: {e2}")
@@ -86,7 +96,7 @@ def process_with_key(args: Tuple[int, str, str, bool]) -> Dict:
     }
 
 # === Batch Processor ===
-def batch_process_questions(questions: List[str], model_name: str = "gpt-4o-mini") -> List[Dict]:
+def batch_process_questions(questions: List[str], model_name: str = "gpt-4o") -> List[Dict]:
     openai_keys = [os.getenv(f'OPENAI_API_KEY_{i}') for i in range(1, 11)]
     gemini_keys = [os.getenv(f'GEMINI_API_KEY_{i}') for i in range(1, 11)]
 

@@ -10,11 +10,16 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
     return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
 async def retrieve_and_respond(text_chunks: List[str], questions: List[str]) -> Dict[str, List[str]]:
+    """
+    Given text chunks and questions (both lists of strings),
+    embed both, find most similar chunks per question,
+    build prompts and get answers from LLM batch processor.
+    """
     start = time.time()
 
-    # Await embedding calls because embed_texts() is async
-    chunk_vectors = await embedding_model.embed_texts(text_chunks)
-    question_vectors = await embedding_model.embed_texts(questions)
+    # Embed the text chunks and questions
+    chunk_vectors = await embedding_model.embed_questions(text_chunks)
+    question_vectors = await embedding_model.embed_questions(questions)
 
     print(f"[Embedding] Took {time.time() - start:.2f}s")
 
@@ -28,8 +33,11 @@ async def retrieve_and_respond(text_chunks: List[str], questions: List[str]) -> 
         prompt = build_concise_prompt(context, q)
         prompts.append(prompt)
 
-    # If batch_process_questions is async, await it
-    results = await batch_process_questions(prompts) if callable(getattr(batch_process_questions, "__await__", None)) else batch_process_questions(prompts)
+    # Call batch_process_questions async or sync accordingly
+    if callable(getattr(batch_process_questions, "__await__", None)):
+        results = await batch_process_questions(prompts)
+    else:
+        results = batch_process_questions(prompts)
 
     return restructure_response(results)
 
@@ -37,7 +45,7 @@ def build_concise_prompt(context: str, question: str) -> str:
     return (
         "You are an insurance policy expert. Answer the question using ONLY the information from the context below. "
         "The context may include tables, bullet points, or structured formats — carefully analyze and extract relevant details from these. "
-        "Keep your response to 1 sentence only, unless essential context (e.g. legal names or conditions) requires 2, that includes essential data like numbers, time periods, limits, or conditions. "
+        "Keep your response to 1 sentence only, unless essential context (e.g. legal names or conditions) requires 2, that includes essential data like numbers, time periods, limits, or conditions. Even then, keep the response as short as possible. "
         "Only provide information that is directly stated or can be clearly inferred from the context. "
         "Do not include assumptions or external knowledge. "
         "If the answer is truly not present in the context — including in tables or structured formats — reply with exactly: "
