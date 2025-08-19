@@ -64,5 +64,13 @@ app/
 ## License
 Apache 2.0
 
-## Images
+## Images Included
+
+The repository includes the following images located in the `images/` folder:
+
+![Screenshot (47)](images/Screenshot%20(47).png)
+![Screenshot (49)](images/Screenshot%20(49).png)
+![Screenshot (50)](images/Screenshot%20(50).png)
+![Screenshot (51)](images/Screenshot%20(51).png)
+
 <!-- Add screenshots, architecture diagrams, or demo GIFs here -->
